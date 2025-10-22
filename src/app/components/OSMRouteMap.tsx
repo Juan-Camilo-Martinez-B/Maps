@@ -69,17 +69,16 @@ export default function OSMRouteMap({
         />
         <ClickCapture onAddPoint={handleMapClickAdd} />
         
-        {/* Marcador de ubicación del usuario (punto inicial) */}
+        {/* Marcador de ubicación del usuario (punto inicial) - ROJO */}
         {userLocation && (
           <Marker 
             position={userLocation} 
             icon={new L.Icon({
-              iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-              iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+              iconUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIuNSAwQzUuNiAwIDAgNS42IDAgMTIuNWMwIDkuNCAxMi41IDI4LjUgMTIuNSAyOC41UzI1IDIxLjkgMjUgMTIuNUMyNSA1LjYgMTkuNCAwIDEyLjUgMHptMCAxNy41Yy0yLjggMC01LTIuMi01LTVzMi4yLTUgNS01IDUgMi4yIDUgNS0yLjIgNS01IDV6IiBmaWxsPSIjZmYwMDAwIi8+PC9zdmc+",
+              iconRetinaUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIuNSAwQzUuNiAwIDAgNS42IDAgMTIuNWMwIDkuNCAxMi41IDI4LjUgMTIuNSAyOC41UzI1IDIxLjkgMjUgMTIuNUMyNSA1LjYgMTkuNCAwIDEyLjUgMHptMCAxNy41Yy0yLjggMC01LTIuMi01LTVzMi4yLTUgNS01IDUgMi4yIDUgNS0yLjIgNS01IDV6IiBmaWxsPSIjZmYwMDAwIi8+PC9zdmc+",
               shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
               iconSize: [30, 49],
               iconAnchor: [15, 49],
-              className: "user-location-marker"
             })}
           />
         )}

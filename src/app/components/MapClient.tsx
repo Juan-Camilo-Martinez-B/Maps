@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import MapPlaceholder from "./MapPlaceholder";
 import type { LatLng, Mode } from "./OSMRouteMap";
 
@@ -15,36 +15,64 @@ export default function MapClient() {
   const [points, setPoints] = useState<LatLng[]>([]);
   const [route, setRoute] = useState<LatLng[]>([]);
   const [mapRef, setMapRef] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
+
+  // Obtener ubicación automáticamente al cargar
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      console.warn("Geolocalización no está soportada por este navegador.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const userLocationCoords: LatLng = [latitude, longitude];
+        
+        // Guardar ubicación del usuario
+        setUserLocation(userLocationCoords);
+        
+        // Centrar el mapa en la ubicación del usuario cuando esté listo
+        if (mapRef) {
+          mapRef.setView(userLocationCoords, 15);
+        }
+        
+        console.log("Ubicación del usuario obtenida automáticamente:", userLocationCoords);
+      },
+      (error) => {
+        console.error("Error obteniendo ubicación automática:", error);
+        // No mostrar alert, solo log en consola
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    );
+  }, [mapRef]);
 
   const addFreePoint = useCallback(async (p: LatLng) => {
     let newPoints: LatLng[];
     
-    if (points.length === 0) {
-      // Primer punto
+    // Si tenemos ubicación del usuario, siempre usar como punto inicial
+    const startPoint = userLocation || (points.length > 0 ? points[0] : null);
+    
+    if (!startPoint) {
+      // Si no hay ubicación del usuario ni puntos previos, usar el punto actual como inicio
       newPoints = [p];
       setPoints(newPoints);
-    } else if (points.length === 1) {
-      // Segundo punto - crear ruta desde el primero
-      newPoints = [points[0], p];
-      setPoints(newPoints);
-      try {
-        const routeCoords = await fetchRouteOsrm(points[0], p);
-        setRoute(routeCoords);
-      } catch (error) {
-        console.warn("Error calculando ruta:", error);
-      }
     } else {
-      // Tercer punto o más - mantener el primero, actualizar el segundo
-      newPoints = [points[0], p];
+      // Usar ubicación del usuario como inicio, punto actual como destino
+      newPoints = [startPoint, p];
       setPoints(newPoints);
       try {
-        const routeCoords = await fetchRouteOsrm(points[0], p);
+        const routeCoords = await fetchRouteOsrm(startPoint, p);
         setRoute(routeCoords);
       } catch (error) {
         console.warn("Error calculando ruta:", error);
       }
     }
-  }, [points]);
+  }, [points, userLocation]);
 
   // Función para calcular ruta OSRM (solo modo auto)
   async function fetchRouteOsrm(a: LatLng, b: LatLng): Promise<LatLng[]> {
@@ -59,46 +87,14 @@ export default function MapClient() {
     return coords.map((c) => [c[1], c[0]] as LatLng);
   }
 
-  // Función para obtener ubicación del usuario
-  const centerOnUserLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      alert("Geolocalización no está soportada por este navegador.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const userLocation: LatLng = [latitude, longitude];
-        
-        // Centrar el mapa en la ubicación del usuario
-        if (mapRef) {
-          mapRef.setView(userLocation, 15);
-        }
-        
-        // Opcional: agregar un marcador en la ubicación del usuario
-        console.log("Ubicación del usuario:", userLocation);
-      },
-      (error) => {
-        console.error("Error obteniendo ubicación:", error);
-        alert("No se pudo obtener tu ubicación. Verifica que tengas permisos de geolocalización habilitados.");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      }
-    );
-  }, [mapRef]);
-
   // Exponer API para controles externos (MapControls)
   if (typeof window !== "undefined") {
     (globalThis as any).__mapControls = {
       setMode,
-      centerOnUserLocation,
       clearRoute: () => {
         setPoints([]);
         setRoute([]);
+        // No limpiar userLocation para mantener el punto de inicio
       },
     };
   }
@@ -110,6 +106,7 @@ export default function MapClient() {
       onAddFreePointAction={addFreePoint}
       route={route}
       onMapReadyAction={setMapRef}
+      userLocation={userLocation}
     />
   );
 }
