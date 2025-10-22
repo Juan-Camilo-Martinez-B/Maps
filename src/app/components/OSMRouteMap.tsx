@@ -33,6 +33,7 @@ export default function OSMRouteMap({
   onAddFreePointAction,
   route,
   onMapReadyAction,
+  userLocation,
 }: {
   initialCenter?: LatLng;
   initialZoom?: number;
@@ -41,6 +42,7 @@ export default function OSMRouteMap({
   onAddFreePointAction: (p: LatLng) => void;
   route: LatLng[];
   onMapReadyAction?: (map: any) => void;
+  userLocation?: LatLng | null;
 }) {
 
   const polylineOpts = useMemo(
@@ -66,23 +68,46 @@ export default function OSMRouteMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ClickCapture onAddPoint={handleMapClickAdd} />
-        {points.length > 0 && (
-          <>
-            <Marker position={points[0]} icon={defaultIcon} />
-            {points.length > 1 && <Marker position={points[points.length - 1]} icon={defaultIcon} />}
-          </>
+        
+        {/* Marcador de ubicación del usuario (punto inicial) */}
+        {userLocation && (
+          <Marker 
+            position={userLocation} 
+            icon={new L.Icon({
+              iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+              iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+              shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+              iconSize: [30, 49],
+              iconAnchor: [15, 49],
+              className: "user-location-marker"
+            })}
+          />
         )}
+        
+        {/* Marcador de destino */}
+        {points.length > 1 && (
+          <Marker position={points[points.length - 1]} icon={defaultIcon} />
+        )}
+        
+        {/* Línea de ruta */}
         {route.length > 0 && (
-          <>
-            <Polyline positions={route} pathOptions={{ color: "#f59e0b", weight: 4, opacity: 0.8 }} />
-          </>
+          <Polyline positions={route} pathOptions={{ color: "#f59e0b", weight: 4, opacity: 0.8 }} />
         )}
       </MapContainer>
 
-      {/* Floating distance badge mimic */}
-      <div className="absolute bottom-4 left-4 rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-gray-900 shadow">
-        {computeDistanceKm(route.length > 0 ? route : points).toFixed(2)} Km
-      </div>
+      {/* Cuadro de distancia - solo aparece cuando hay ruta */}
+      {route.length > 0 && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-1000">
+          <div className="rounded-xl bg-white px-5 py-3 shadow-lg border-2 border-yellow-400">
+            <div className="text-center">
+              <div className="text-xs text-gray-600 font-medium mb-1">Distancia</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {computeDistanceKm(route).toFixed(2)} <span className="text-lg">km</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
