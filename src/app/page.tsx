@@ -1,7 +1,8 @@
 import ActivityCard from "./components/ActivityCard";
 import Card from "./components/Card";
 import HeaderBar from "./components/HeaderBar";
-import MapPlaceholder from "./components/MapPlaceholder";
+import MapClient from "./components/MapClient";
+import MapControls from "./components/MapControls";
 import TodayMetrics from "./components/TodayMetrics";
 
 export default function Home() {
@@ -10,7 +11,8 @@ export default function Home() {
       <Card>
         <div className="grid gap-4">
           <HeaderBar />
-          <MapPlaceholder />
+          <MapControls />
+          <MapClient />
           <ActivityCard />
           <TodayMetrics />
         </div>
