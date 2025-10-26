@@ -1,11 +1,18 @@
 "use client";
 
 import L from "leaflet";
-import { useMemo } from "react";
 import { MapContainer, Marker, Polyline, TileLayer, useMapEvents } from "react-leaflet";
+import type { LatLng } from "@/lib/types";
+import { calculateDistance } from "@/lib/utils/calculations";
 
-// Fix default icon paths for Leaflet in Next.js
-const defaultIcon = new L.Icon({
+// Iconos personalizados
+const userIcon = new L.Icon({
+  iconUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAiIGhlaWdodD0iMzAiIHZpZXdCb3g9IjAgMCAzMCAzMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxNSIgY3k9IjE1IiByPSIxMiIgZmlsbD0iIzM0ODFmZiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PGNpcmNsZSBjeD0iMTUiIGN5PSIxNSIgcj0iNSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=",
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+});
+
+const destinationIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
@@ -13,126 +20,136 @@ const defaultIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
-export type LatLng = [number, number];
-export type Mode = "free";
-
-function ClickCapture({ onAddPoint }: { onAddPoint: (latlng: LatLng) => void }) {
+function ClickCapture({ onClick, disabled }: { onClick: (latlng: LatLng) => void; disabled: boolean }) {
   useMapEvents({
     click(e: any) {
-      onAddPoint([e.latlng.lat, e.latlng.lng]);
+      if (!disabled) {
+        onClick([e.latlng.lat, e.latlng.lng]);
+      }
     },
   });
   return null;
 }
 
+interface OSMRouteMapProps {
+  userLocation: LatLng | null;
+  selectedPoints: LatLng[];
+  plannedRoute: LatLng[];
+  trackingRoute: LatLng[];
+  isTracking: boolean;
+  onMapClick: (point: LatLng) => void;
+  onMapReady: (map: any) => void;
+}
+
 export default function OSMRouteMap({
-  initialCenter = [6.25184, -75.56359],
-  initialZoom = 13,
-  mode,
-  points,
-  onAddFreePointAction,
-  route,
-  onMapReadyAction,
   userLocation,
-}: {
-  initialCenter?: LatLng;
-  initialZoom?: number;
-  mode: Mode;
-  points: LatLng[];
-  onAddFreePointAction: (p: LatLng) => void;
-  route: LatLng[];
-  onMapReadyAction?: (map: any) => void;
-  userLocation?: LatLng | null;
-}) {
+  selectedPoints,
+  plannedRoute,
+  trackingRoute,
+  isTracking,
+  onMapClick,
+  onMapReady,
+}: OSMRouteMapProps) {
+  const initialCenter: LatLng = userLocation || [6.25184, -75.56359];
 
-  const polylineOpts = useMemo(
-    () => ({ color: "#f59e0b", weight: 5, opacity: 0.9 }),
-    []
-  );
-
-  function handleMapClickAdd(p: LatLng) {
-    onAddFreePointAction(p);
-  }
+  // Mostrar ruta de tracking o ruta planificada
+  const displayRoute = isTracking ? trackingRoute : plannedRoute;
+  const routeDistance = displayRoute.length > 0 ? calculateDistance(displayRoute) : 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
+    <div className="relative overflow-hidden rounded-2xl shadow-xl border-2 border-gray-300">
       <MapContainer
         center={initialCenter}
-        zoom={initialZoom}
-        className="h-[420px] w-full"
+        zoom={15}
+        className="h-[300px] sm:h-[400px] md:h-[500px] w-full"
         scrollWheelZoom
-        ref={onMapReadyAction}
+        ref={onMapReady}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <ClickCapture onAddPoint={handleMapClickAdd} />
-        
-        {/* Marcador de ubicación del usuario (punto inicial) - ROJO */}
+        <ClickCapture onClick={onMapClick} disabled={isTracking} />
+
+        {/* Ubicación del usuario (punto de inicio) - SIEMPRE VISIBLE */}
         {userLocation && (
+          <Marker position={userLocation} icon={userIcon} />
+        )}
+
+        {/* Punto de destino (modo planificación) */}
+        {!isTracking && selectedPoints.length > 1 && (
           <Marker 
-            position={userLocation} 
-            icon={new L.Icon({
-              iconUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIuNSAwQzUuNiAwIDAgNS42IDAgMTIuNWMwIDkuNCAxMi41IDI4LjUgMTIuNSAyOC41UzI1IDIxLjkgMjUgMTIuNUMyNSA1LjYgMTkuNCAwIDEyLjUgMHptMCAxNy41Yy0yLjggMC01LTIuMi01LTVzMi4yLTUgNS01IDUgMi4yIDUgNS0yLjIgNS01IDV6IiBmaWxsPSIjZmYwMDAwIi8+PC9zdmc+",
-              iconRetinaUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIuNSAwQzUuNiAwIDAgNS42IDAgMTIuNWMwIDkuNCAxMi41IDI4LjUgMTIuNSAyOC41UzI1IDIxLjkgMjUgMTIuNUMyNSA1LjYgMTkuNCAwIDEyLjUgMHptMCAxNy41Yy0yLjggMC01LTIuMi01LTVzMi4yLTUgNS01IDUgMi4yIDUgNS0yLjIgNS01IDV6IiBmaWxsPSIjZmYwMDAwIi8+PC9zdmc+",
-              shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-              iconSize: [30, 49],
-              iconAnchor: [15, 49],
-            })}
+            position={selectedPoints[selectedPoints.length - 1]} 
+            icon={destinationIcon}
           />
         )}
-        
-        {/* Marcador de destino */}
-        {points.length > 1 && (
-          <Marker position={points[points.length - 1]} icon={defaultIcon} />
+
+        {/* Ruta planificada (modo libre) */}
+        {!isTracking && plannedRoute.length > 0 && (
+          <Polyline
+            positions={plannedRoute}
+            pathOptions={{
+              color: "#f59e0b",
+              weight: 5,
+              opacity: 0.8,
+            }}
+          />
         )}
-        
-        {/* Línea de ruta */}
-        {route.length > 0 && (
-          <Polyline positions={route} pathOptions={{ color: "#f59e0b", weight: 4, opacity: 0.8 }} />
+
+        {/* Ruta de tracking (modo activo) */}
+        {isTracking && trackingRoute.length > 1 && (
+          <Polyline
+            positions={trackingRoute}
+            pathOptions={{
+              color: "#10b981",
+              weight: 5,
+              opacity: 0.9,
+            }}
+          />
         )}
       </MapContainer>
 
-      {/* Cuadro de distancia - solo aparece cuando hay ruta */}
-      {route.length > 0 && (
+      {/* Indicador de distancia */}
+      {displayRoute.length > 0 && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-1000">
-          <div className="rounded-xl bg-white px-5 py-3 shadow-lg border-2 border-yellow-400">
+          <div
+            className={`rounded-xl px-5 py-3 shadow-lg border ${
+              isTracking
+                ? "bg-green-600 text-white border-green-500"
+                : "bg-blue-600 text-white border-blue-500"
+            }`}
+          >
             <div className="text-center">
-              <div className="text-xs text-gray-600 font-medium mb-1">Distancia</div>
-              <div className="text-2xl font-bold text-gray-900">
-                {computeDistanceKm(route).toFixed(2)} <span className="text-lg">km</span>
+              <div className="text-xs font-bold mb-1 uppercase tracking-wide text-white/90">
+                {isTracking ? "Recorrido" : "Distancia"}
+              </div>
+              <div className="text-3xl font-bold text-white">
+                {(routeDistance / 1000).toFixed(2)} <span className="text-xl">km</span>
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Instrucción cuando no está tracking */}
+      {!isTracking && userLocation && plannedRoute.length === 0 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-1000 w-11/12 max-w-md">
+          <div className="rounded-xl bg-gray-800/95 px-5 py-3 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm shadow-xl border border-gray-700">
+            📍 Haz clic en el mapa para calcular una ruta desde tu ubicación
+          </div>
+        </div>
+      )}
+      
+      {/* Mensaje cuando no hay ubicación */}
+      {!isTracking && !userLocation && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-1000 w-11/12 max-w-md">
+          <div className="rounded-xl bg-blue-600/95 px-5 py-3 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm shadow-xl border border-blue-500">
+            📍 Permitiendo acceso a tu ubicación...
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-function computeDistanceKm(points: LatLng[]) {
-  if (points.length < 2) return 0;
-  let meters = 0;
-  for (let i = 1; i < points.length; i++) {
-    meters += haversine(points[i - 1], points[i]);
-  }
-  return meters / 1000;
-}
-
-function haversine(a: LatLng, b: LatLng) {
-  const R = 6371000; // meters
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b[0] - a[0]);
-  const dLon = toRad(b[1] - a[1]);
-  const lat1 = toRad(a[0]);
-  const lat2 = toRad(b[0]);
-  const sinDLat = Math.sin(dLat / 2);
-  const sinDLon = Math.sin(dLon / 2);
-  const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
-  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-  return R * c;
 }
 
 

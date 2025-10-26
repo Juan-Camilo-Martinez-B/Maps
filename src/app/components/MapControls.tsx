@@ -1,41 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-type ControlsApi = {
-  setMode: (m: "free") => void;
-  clearRoute: () => void;
-} | null;
+import { motion } from "framer-motion";
+import { useStore } from "@/lib/store/useStore";
 
 export default function MapControls() {
-  const [api, setApi] = useState<ControlsApi>(null);
-
-  useEffect(() => {
-    const read = () => setApi(((globalThis as any).__mapControls ?? null) as ControlsApi);
-    read();
-    const id = setInterval(read, 300);
-    return () => clearInterval(id);
-  }, []);
-
-  const disabled = !api;
-  const baseBtn =
-    "rounded-lg px-3 py-1.5 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/40";
+  const { clearRoute, isTracking } = useStore();
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">Free Maps</h1>
-      </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className={`${baseBtn} bg-white text-gray-900 shadow hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed`}
-          onClick={() => api?.clearRoute()}
-          disabled={disabled}
+    <div className="flex items-center justify-between gap-3 sm:gap-4 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 p-4 sm:p-5 shadow-lg border border-blue-500">
+      <motion.h1
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3"
+      >
+        <span className="text-2xl sm:text-3xl">🗺️</span>
+        <span className="hidden sm:inline">Fitness Tracker</span>
+        <span className="sm:hidden">Fitness</span>
+      </motion.h1>
+
+      {!isTracking && (
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={clearRoute}
+          className="flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-md transition-all border border-red-500"
         >
-          Limpiar ruta
-        </button>
-      </div>
+          <span className="text-base sm:text-lg">🗑️</span>
+          <span className="hidden sm:inline">Limpiar</span>
+        </motion.button>
+      )}
     </div>
   );
 }

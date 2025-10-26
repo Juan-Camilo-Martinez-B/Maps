@@ -1,9 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useStore } from "@/lib/store/useStore";
+import { fetchRoute } from "@/lib/services/routeService";
+import { useGeolocation } from "@/hooks/useGeolocation";
 import MapPlaceholder from "./MapPlaceholder";
-import type { LatLng, Mode } from "./OSMRouteMap";
+import type { LatLng } from "@/lib/types";
+import { toast } from "sonner";
 
 const OSMRouteMap = dynamic(() => import("./OSMRouteMap"), {
   ssr: false,
@@ -11,102 +15,97 @@ const OSMRouteMap = dynamic(() => import("./OSMRouteMap"), {
 });
 
 export default function MapClient() {
-  const [mode, setMode] = useState<Mode>("free");
-  const [points, setPoints] = useState<LatLng[]>([]);
-  const [route, setRoute] = useState<LatLng[]>([]);
+  const {
+    userLocation,
+    setUserLocation,
+    selectedPoints,
+    setSelectedPoints,
+    plannedRoute,
+    setPlannedRoute,
+    mapMode,
+    isTracking,
+    currentActivity,
+    addRoutePoint,
+  } = useStore();
+
   const [mapRef, setMapRef] = useState<any>(null);
-  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
+  const lastTrackedPointRef = useRef<LatLng | null>(null);
 
-  // Obtener ubicación automáticamente al cargar
+  // Obtener ubicación del usuario
+  const { location, error } = useGeolocation(isTracking);
+
+  // Manejar ubicación inicial
   useEffect(() => {
-    if (!navigator.geolocation) {
-      console.warn("Geolocalización no está soportada por este navegador.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const userLocationCoords: LatLng = [latitude, longitude];
-        
-        // Guardar ubicación del usuario
-        setUserLocation(userLocationCoords);
-        
-        // Centrar el mapa en la ubicación del usuario cuando esté listo
-        if (mapRef) {
-          mapRef.setView(userLocationCoords, 15);
-        }
-        
-        console.log("Ubicación del usuario obtenida automáticamente:", userLocationCoords);
-      },
-      (error) => {
-        console.error("Error obteniendo ubicación automática:", error);
-        // No mostrar alert, solo log en consola
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      }
-    );
-  }, [mapRef]);
-
-  const addFreePoint = useCallback(async (p: LatLng) => {
-    let newPoints: LatLng[];
-    
-    // Si tenemos ubicación del usuario, siempre usar como punto inicial
-    const startPoint = userLocation || (points.length > 0 ? points[0] : null);
-    
-    if (!startPoint) {
-      // Si no hay ubicación del usuario ni puntos previos, usar el punto actual como inicio
-      newPoints = [p];
-      setPoints(newPoints);
-    } else {
-      // Usar ubicación del usuario como inicio, punto actual como destino
-      newPoints = [startPoint, p];
-      setPoints(newPoints);
-      try {
-        const routeCoords = await fetchRouteOsrm(startPoint, p);
-        setRoute(routeCoords);
-      } catch (error) {
-        console.warn("Error calculando ruta:", error);
+    if (location && !userLocation) {
+      setUserLocation(location);
+      if (mapRef) {
+        mapRef.setView(location, 15);
       }
     }
-  }, [points, userLocation]);
+  }, [location, userLocation, setUserLocation, mapRef]);
 
-  // Función para calcular ruta OSRM (solo modo auto)
-  async function fetchRouteOsrm(a: LatLng, b: LatLng): Promise<LatLng[]> {
-    const aStr = `${a[1]},${a[0]}`;
-    const bStr = `${b[1]},${b[0]}`;
-    
-    // Solo usar perfil 'driving' (modo auto)
-    const url = `https://router.project-osrm.org/route/v1/driving/${aStr};${bStr}?overview=full&geometries=geojson`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const coords: any[] = data?.routes?.[0]?.geometry?.coordinates || [];
-    return coords.map((c) => [c[1], c[0]] as LatLng);
-  }
+  // Manejar tracking de ruta
+  useEffect(() => {
+    if (isTracking && currentActivity && location) {
+      // Verificar si este punto ya fue agregado
+      const lastPoint = lastTrackedPointRef.current;
+      const isDifferentPoint =
+        !lastPoint ||
+        lastPoint[0] !== location[0] ||
+        lastPoint[1] !== location[1];
 
-  // Exponer API para controles externos (MapControls)
-  if (typeof window !== "undefined") {
-    (globalThis as any).__mapControls = {
-      setMode,
-      clearRoute: () => {
-        setPoints([]);
-        setRoute([]);
-        // No limpiar userLocation para mantener el punto de inicio
-      },
-    };
-  }
+      if (isDifferentPoint) {
+        addRoutePoint(location);
+        lastTrackedPointRef.current = location;
+      }
+    }
+
+    // Limpiar referencia cuando se detiene el tracking
+    if (!isTracking) {
+      lastTrackedPointRef.current = null;
+    }
+  }, [location, isTracking, currentActivity, addRoutePoint]);
+
+  // Manejar errores de geolocalización
+  useEffect(() => {
+    if (error) {
+      toast.error(`Error de geolocalización: ${error}`);
+    }
+  }, [error]);
+
+  // Manejar click en modo libre (planificación de ruta)
+  const handleMapClick = async (point: LatLng) => {
+    if (isTracking) return; // No permitir planificación durante tracking
+
+    try {
+      // Si tenemos ubicación del usuario, siempre usarla como punto de inicio
+      if (userLocation) {
+        // Calcular ruta desde la ubicación del usuario hasta el punto clickeado
+        const route = await fetchRoute(userLocation, point, "walking");
+        setSelectedPoints([userLocation, point]);
+        setPlannedRoute(route);
+        toast.success("Ruta calculada desde tu ubicación");
+      } else {
+        // Si no hay ubicación del usuario, establecer el punto clickeado como único punto
+        setSelectedPoints([point]);
+        setPlannedRoute([]);
+        toast.info("Esperando tu ubicación...");
+      }
+    } catch (error) {
+      console.error("Error calculating route:", error);
+      toast.error("No se pudo calcular la ruta");
+    }
+  };
 
   return (
     <OSMRouteMap
-      mode={mode}
-      points={points}
-      onAddFreePointAction={addFreePoint}
-      route={route}
-      onMapReadyAction={setMapRef}
       userLocation={userLocation}
+      selectedPoints={selectedPoints}
+      plannedRoute={plannedRoute}
+      trackingRoute={currentActivity?.route || []}
+      isTracking={isTracking}
+      onMapClick={handleMapClick}
+      onMapReady={setMapRef}
     />
   );
 }
