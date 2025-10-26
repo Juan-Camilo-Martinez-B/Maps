@@ -111,9 +111,9 @@ export default function OSMRouteMap({
 
       {/* Indicador de distancia */}
       {displayRoute.length > 0 && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-1000">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
           <div
-            className={`rounded-xl px-5 py-3 shadow-lg border ${
+            className={`rounded-xl px-5 py-3 shadow-lg border pointer-events-auto ${
               isTracking
                 ? "bg-green-600 text-white border-green-500"
                 : "bg-blue-600 text-white border-blue-500"
@@ -133,7 +133,7 @@ export default function OSMRouteMap({
 
       {/* Instrucción cuando no está tracking */}
       {!isTracking && userLocation && plannedRoute.length === 0 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-1000 w-11/12 max-w-md">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-11/12 max-w-md pointer-events-none">
           <div className="rounded-xl bg-gray-800/95 px-5 py-3 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm shadow-xl border border-gray-700">
             📍 Haz clic en el mapa para calcular una ruta desde tu ubicación
           </div>
@@ -142,7 +142,7 @@ export default function OSMRouteMap({
       
       {/* Mensaje cuando no hay ubicación */}
       {!isTracking && !userLocation && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-1000 w-11/12 max-w-md">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-11/12 max-w-md pointer-events-none">
           <div className="rounded-xl bg-blue-600/95 px-5 py-3 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm shadow-xl border border-blue-500">
             📍 Permitiendo acceso a tu ubicación...
           </div>
